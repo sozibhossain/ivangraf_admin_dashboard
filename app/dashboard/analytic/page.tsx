@@ -58,7 +58,7 @@ export default function AnalyticPage() {
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-4">
+          <CardHeader className="flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Type of Payment</CardTitle>
               <p className="text-sm text-[#7b6a48]">See the Type of Payment.</p>
@@ -99,7 +99,7 @@ export default function AnalyticPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-4">
+          <CardHeader className="flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Time Periods</CardTitle>
               <p className="text-sm text-[#7b6a48]">See Time Periods.</p>
@@ -139,7 +139,7 @@ export default function AnalyticPage() {
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <Card>
-          <CardHeader className="flex-row items-start justify-between gap-4">
+          <CardHeader className="flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Revenue Analysis</CardTitle>
               <p className="text-sm text-[#7b6a48]">See the Revenue</p>

@@ -9,11 +9,17 @@ export function LogoBadge({ className }: LogoBadgeProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-xl bg-black px-4 py-2 text-white shadow-sm",
+        "flex items-center gap-2 rounded-xl bg-black px-3 py-2 text-white shadow-sm sm:px-4",
         className
       )}
     >
-     <Image src="/logo.png" alt="Logo" width={400} height={400} className="w-[112px] h-[53px]"/>
+      <Image
+        src="/logo.png"
+        alt="Logo"
+        width={112}
+        height={53}
+        className="h-9 w-auto sm:h-12"
+      />
     </div>
   );
 }

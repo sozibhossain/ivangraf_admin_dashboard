@@ -41,9 +41,10 @@ const FAVORITES_KEY = "ivangraf_admin_favorites";
 
 interface SidebarProps {
   className?: string;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const [favorites, setFavorites] = React.useState<string[]>([]);
 
@@ -88,10 +89,13 @@ export function Sidebar({ className }: SidebarProps) {
 
   return (
     <aside
-      className={cn("flex h-full flex-col gap-4 px-4 pb-6 pt-8", className)}
+      className={cn(
+        "flex h-full flex-col gap-4 overflow-hidden px-4 pb-6 pt-6 sm:pt-8",
+        className
+      )}
       style={{ backgroundColor: "rgba(255, 231, 169, 1)" }}
     >
-      <nav className="flex flex-1 flex-col gap-2">
+      <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {sortedItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -100,6 +104,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => onNavigate?.()}
               className={cn(
                 "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#2f2a21] transition",
                 isActive
@@ -139,6 +144,7 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
       <Link
         href="/auth/login"
+        onClick={() => onNavigate?.()}
         className="flex items-center gap-3 px-3 py-2 text-sm font-semibold text-[#c93333]"
       >
         <LogOut className="h-4 w-4" />

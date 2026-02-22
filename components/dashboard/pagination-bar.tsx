@@ -51,14 +51,14 @@ export function PaginationBar({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-4 text-sm text-[#6f6146]",
+        "flex flex-col gap-3 text-sm text-[#6f6146] sm:flex-row sm:items-center sm:justify-between",
         className
       )}
     >
       <div>
         Showing {start} to {end} of {totalItems} results
       </div>
-      <Pagination className="w-auto">
+      <Pagination className="w-full sm:mx-0 sm:w-auto sm:justify-end">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
