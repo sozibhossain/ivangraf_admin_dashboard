@@ -13,7 +13,7 @@ export function LogoBadge({ className }: LogoBadgeProps) {
         className
       )}
     >
-     <Image src="/logo.png" alt="Logo" width={400} height={400} className="w-[112px] h-[63px]"/>
+     <Image src="/logo.png" alt="Logo" width={400} height={400} className="w-[112px] h-[53px]"/>
     </div>
   );
 }
