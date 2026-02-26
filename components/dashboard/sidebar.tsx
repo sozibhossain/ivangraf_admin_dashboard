@@ -30,11 +30,11 @@ const navItems = [
   { name: "List of spend Goods", href: "/dashboard/list-of-spend-goods", icon: ShoppingCart },
   { name: "Revenue", href: "/dashboard/revenue", icon: Wallet },
   { name: "Revenue per tax group", href: "/dashboard/revenue-per-tax-group", icon: Percent },
-  // { name: "Revenue Per Waiter", href: "/dashboard/revenue-per-waiter", icon: Users },
-  // { name: "Opens Tables", href: "/dashboard/opens-tables", icon: Table2 },
-  // { name: "Stock of Goods", href: "/dashboard/stock-of-goods", icon: Package },
-  // { name: "Bills", href: "/dashboard/bills", icon: Receipt },
-  // { name: "Cancel Orders", href: "/dashboard/cancel-orders", icon: Ban },
+  { name: "Revenue Per Waiter", href: "/dashboard/revenue-per-waiter", icon: Users },
+  { name: "Opens Tables", href: "/dashboard/opens-tables", icon: Table2 },
+  { name: "Stock of Goods", href: "/dashboard/stock-of-goods", icon: Package },
+  { name: "Bills", href: "/dashboard/bills", icon: Receipt },
+  { name: "Cancel Orders", href: "/dashboard/cancel-orders", icon: Ban },
 ].map((item, index) => ({ ...item, order: index }));
 
 const FAVORITES_KEY = "ivangraf_admin_favorites";
