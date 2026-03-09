@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 
-import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
 import { ItemsDetailsDialog } from "@/components/dashboard/items-details-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -15,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getBillItems, getBills, type BillItem } from "@/lib/api";
-import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { formatSummaryValue } from "@/lib/summary";
@@ -25,7 +23,6 @@ const ITEMS_PER_PAGE = 12;
 export default function BillsPage() {
   const [page, setPage] = React.useState(1);
   const [search, setSearch] = React.useState("");
-  const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("last7Days"));
   const [exportOpen, setExportOpen] = React.useState(false);
   const [detailExportOpen, setDetailExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<BillItem | null>(null);
@@ -36,14 +33,13 @@ export default function BillsPage() {
       page,
       limit: ITEMS_PER_PAGE,
       search: deferredSearch || undefined,
-      ...buildDateFilterParams(dateFilter),
     }),
-    [page, deferredSearch, dateFilter]
+    [page, deferredSearch]
   );
 
   React.useEffect(() => {
     setPage(1);
-  }, [deferredSearch, dateFilter]);
+  }, [deferredSearch]);
 
   const billsQuery = useQuery({
     queryKey: ["lists", "bills", queryParams],
@@ -86,13 +82,10 @@ export default function BillsPage() {
         title="Bills"
         description="Track and reconcile generated bills."
         actions={
-          <>
-            <DateFilter value={dateFilter} onChange={setDateFilter} />
-            <Button variant="soft" onClick={() => setExportOpen(true)}>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </>
+          <Button variant="soft" onClick={() => setExportOpen(true)}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
         }
       />
 
@@ -145,7 +138,6 @@ export default function BillsPage() {
         reportPath="/api/lists/bills/export"
         params={{
           search: deferredSearch || undefined,
-          ...buildDateFilterParams(dateFilter),
         }}
       />
 

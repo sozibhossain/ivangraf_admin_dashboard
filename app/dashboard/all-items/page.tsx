@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 
-import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RowDetailsDialog } from "@/components/dashboard/row-details-dialog";
@@ -15,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAllItems, type AllItem } from "@/lib/api";
-import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { formatSummaryValue } from "@/lib/summary";
@@ -24,7 +22,6 @@ const ITEMS_PER_PAGE = 12;
 
 export default function AllItemsPage() {
   const [page, setPage] = React.useState(1);
-  const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("all"));
   const [exportOpen, setExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<AllItem | null>(null);
 
@@ -32,14 +29,9 @@ export default function AllItemsPage() {
     () => ({
       page,
       limit: ITEMS_PER_PAGE,
-      ...buildDateFilterParams(dateFilter),
     }),
-    [page, dateFilter]
+    [page]
   );
-
-  React.useEffect(() => {
-    setPage(1);
-  }, [dateFilter]);
 
   const itemsQuery = useQuery({
     queryKey: ["lists", "all-items", queryParams],
@@ -69,13 +61,10 @@ export default function AllItemsPage() {
         title="List of All Items"
         description="See items and articles. Check details in clear lists and stay organized."
         actions={
-          <>
-            <DateFilter value={dateFilter} onChange={setDateFilter} />
-            <Button variant="soft" onClick={() => setExportOpen(true)}>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </>
+          <Button variant="soft" onClick={() => setExportOpen(true)}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
         }
       />
 
@@ -121,7 +110,6 @@ export default function AllItemsPage() {
         title="Export"
         subtitle="List of all items"
         reportPath="/api/lists/items/export"
-        params={buildDateFilterParams(dateFilter)}
       />
 
       <RowDetailsDialog

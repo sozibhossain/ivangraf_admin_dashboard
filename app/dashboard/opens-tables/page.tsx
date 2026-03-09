@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 
-import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
 import { ItemsDetailsDialog } from "@/components/dashboard/items-details-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -16,23 +15,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getOpenTableItems, getOpenTables, type OpenTableItem } from "@/lib/api";
-import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 
 const ITEMS_PER_PAGE = 12;
 
 export default function OpensTablesPage() {
-  const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("all"));
   const [exportOpen, setExportOpen] = React.useState(false);
   const [detailExportOpen, setDetailExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<OpenTableItem | null>(null);
 
-  const queryParams = React.useMemo(() => buildDateFilterParams(dateFilter), [dateFilter]);
-
   const openTablesQuery = useQuery({
-    queryKey: ["dashboard", "open-tables", queryParams],
-    queryFn: () => getOpenTables(queryParams),
+    queryKey: ["dashboard", "open-tables"],
+    queryFn: () => getOpenTables(),
   });
 
   const selectedTableId = selectedItem?.status === "Occupied" ? selectedItem.tableId : undefined;
@@ -59,10 +54,6 @@ export default function OpensTablesPage() {
   );
   const { page, setPage, totalPages, totalItems, items } = usePagination(rows, ITEMS_PER_PAGE);
 
-  React.useEffect(() => {
-    setPage(1);
-  }, [dateFilter, setPage]);
-
   const detailData = openTableItemsQuery.data?.data;
 
   return (
@@ -71,13 +62,10 @@ export default function OpensTablesPage() {
         title="Opens Tables"
         description="Track current table occupancy and waiter assignment."
         actions={
-          <>
-            <DateFilter value={dateFilter} onChange={setDateFilter} />
-            <Button variant="soft" onClick={() => setExportOpen(true)}>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </>
+          <Button variant="soft" onClick={() => setExportOpen(true)}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
         }
       />
 
@@ -127,7 +115,6 @@ export default function OpensTablesPage() {
         title="Export"
         subtitle="Open tables"
         reportPath="/api/analytics/open-tables/export"
-        params={queryParams}
       />
 
       <ItemsDetailsDialog
