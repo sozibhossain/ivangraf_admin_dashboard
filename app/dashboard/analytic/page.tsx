@@ -17,10 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getRevenueAnalysis,
-  getTimePeriods,
   getTopSoldItems,
   getTypeOfPayment,
-  type TopSoldItem,
+  type RevenueAnalysisItem,
 } from "@/lib/api";
 import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
@@ -59,7 +58,7 @@ function AnalyticCardSkeleton() {
 export default function AnalyticPage() {
   const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("last7Days"));
   const [exportOpen, setExportOpen] = React.useState(false);
-  const [selectedItem, setSelectedItem] = React.useState<TopSoldItem | null>(null);
+  const [selectedRow, setSelectedRow] = React.useState<RevenueAnalysisItem | null>(null);
 
   const queryParams = React.useMemo(() => buildDateFilterParams(dateFilter), [dateFilter]);
   const referenceDate = queryParams.to || queryParams.from || undefined;
@@ -70,11 +69,6 @@ export default function AnalyticPage() {
     queryFn: () => getTypeOfPayment(queryParams),
   });
 
-  const timePeriodsQuery = useQuery({
-    queryKey: ["dashboard", "time-periods", referenceDate],
-    queryFn: () => getTimePeriods({ referenceDate }),
-  });
-
   const revenueAnalysisQuery = useQuery({
     queryKey: ["dashboard", "revenue-analysis", referenceYear],
     queryFn: () => getRevenueAnalysis(referenceYear ? { year: referenceYear } : undefined),
@@ -82,20 +76,17 @@ export default function AnalyticPage() {
 
   const topSoldQuery = useQuery({
     queryKey: ["dashboard", "top-sold-items", queryParams],
-    queryFn: () => getTopSoldItems({ ...queryParams, limit: 50 }),
+    queryFn: () => getTopSoldItems({ ...queryParams, limit: 10 }),
   });
 
   React.useEffect(() => {
-    const firstError =
-      paymentQuery.error || timePeriodsQuery.error || revenueAnalysisQuery.error || topSoldQuery.error;
-
+    const firstError = paymentQuery.error || revenueAnalysisQuery.error || topSoldQuery.error;
     if (firstError) {
       toast.error(getErrorMessage(firstError, "Failed to load analytics"));
     }
-  }, [paymentQuery.error, revenueAnalysisQuery.error, timePeriodsQuery.error, topSoldQuery.error]);
+  }, [paymentQuery.error, revenueAnalysisQuery.error, topSoldQuery.error]);
 
   const paymentItems = paymentQuery.data?.data || [];
-  const timeItems = timePeriodsQuery.data?.data || [];
   const revenueRows = revenueAnalysisQuery.data?.data || [];
   const topSoldRows = topSoldQuery.data?.data || [];
 
@@ -105,13 +96,13 @@ export default function AnalyticPage() {
       color: ["#c18b1f", "#d9a441", "#f1c66b", "#ab7a1a", "#e8b85c"][index % 5],
     }))
   );
-
-  const timeStops = buildConicStops(
-    timeItems.map((item, index) => ({
-      value: item.total,
-      color: ["#e28a00", "#f3c774", "#cfa344"][index % 3],
+  const topSoldStops = buildConicStops(
+    topSoldRows.map((item, index) => ({
+      value: item.totalAmount,
+      color: ["#e28a00", "#f3c774", "#cfa344", "#a86f00", "#ecc16d"][index % 5],
     }))
   );
+  const topSoldGrand = topSoldRows.reduce((sum, row) => sum + row.totalAmount, 0);
 
   const maxRevenue = Math.max(
     1,
@@ -119,16 +110,16 @@ export default function AnalyticPage() {
   );
 
   const {
-    page: topPage,
-    setPage: setTopPage,
-    totalPages: topTotalPages,
-    totalItems: topTotalItems,
-    items: pagedTopRows,
-  } = usePagination(topSoldRows, 6);
+    page: revenuePage,
+    setPage: setRevenuePage,
+    totalPages: revenueTotalPages,
+    totalItems: revenueTotalItems,
+    items: pagedRevenueRows,
+  } = usePagination(revenueRows, 6);
 
   React.useEffect(() => {
-    setTopPage(1);
-  }, [dateFilter, setTopPage]);
+    setRevenuePage(1);
+  }, [referenceYear, setRevenuePage]);
 
   return (
     <div className="space-y-6">
@@ -184,19 +175,19 @@ export default function AnalyticPage() {
           </Card>
         )}
 
-        {timePeriodsQuery.isLoading ? (
+        {topSoldQuery.isLoading ? (
           <AnalyticCardSkeleton />
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Time Periods</CardTitle>
-              <p className="text-sm text-[#7b6a48]">See time period split.</p>
+              <CardTitle>Top Sold Items (Top 10)</CardTitle>
+              <p className="text-sm text-[#7b6a48]">Top sold items split in pie chart.</p>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-6">
               <div
                 className="relative h-44 w-44 rounded-full"
                 style={{
-                  background: `conic-gradient(${timeStops
+                  background: `conic-gradient(${topSoldStops
                     .map((stop) => `${stop.color} ${stop.start}% ${stop.end}%`)
                     .join(", ")})`,
                 }}
@@ -204,33 +195,36 @@ export default function AnalyticPage() {
                 <div className="absolute inset-10 rounded-full bg-white" />
               </div>
               <div className="w-full space-y-2">
-                {timeItems.map((item, index) => (
-                  <div key={`${item.label}-${index}`} className="flex items-center justify-between gap-3 text-sm text-[#4c4231]">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ background: ["#e28a00", "#f3c774", "#cfa344"][index % 3] }}
-                      />
-                      {item.label}
-                    </span>
-                    <span>{item.percent}%</span>
-                  </div>
-                ))}
+                {topSoldRows.map((item, index) => {
+                  const percent = topSoldGrand ? Number(((item.totalAmount * 100) / topSoldGrand).toFixed(2)) : 0;
+                  return (
+                    <div key={`${item.articleId}-${item.rank}`} className="flex items-center justify-between gap-3 text-sm text-[#4c4231]">
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ background: ["#e28a00", "#f3c774", "#cfa344", "#a86f00", "#ecc16d"][index % 5] }}
+                        />
+                        {item.itemName}
+                      </span>
+                      <span>{percent}%</span>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
         <Card>
           <CardHeader>
             <CardTitle>Revenue Analysis</CardTitle>
-            <p className="text-sm text-[#7b6a48]">Monthly comparison of this year vs last year.</p>
+            <p className="text-sm text-[#7b6a48]">Monthly comparison with years included.</p>
           </CardHeader>
           <CardContent>
             {revenueAnalysisQuery.isLoading ? (
-              <Skeleton className="h-[240px] w-full" />
+              <Skeleton className="h-[260px] w-full" />
             ) : (
               <>
                 <div className="grid grid-cols-6 gap-2 sm:grid-cols-12">
@@ -246,7 +240,7 @@ export default function AnalyticPage() {
                           style={{ height: `${((item.thisYearTotal || 0) / maxRevenue) * 140}px` }}
                         />
                       </div>
-                      <div className="text-[10px] text-[#7b6a48]">{item.monthName.slice(0, 3)}</div>
+                      <div className="text-center text-[10px] text-[#7b6a48]">{item.monthPairLabel}</div>
                     </div>
                   ))}
                 </div>
@@ -267,11 +261,11 @@ export default function AnalyticPage() {
 
         <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Top sold items</CardTitle>
-            <p className="text-sm text-[#7b6a48]">Most sold items for selected period.</p>
+            <CardTitle>Revenue Comparison Table</CardTitle>
+            <p className="text-sm text-[#7b6a48]">Month by month: last year vs this year with differences.</p>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto pr-2">
-            {topSoldQuery.isLoading ? (
+            {revenueAnalysisQuery.isLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <Skeleton key={index} className="h-10 w-full" />
@@ -282,32 +276,39 @@ export default function AnalyticPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Month</TableHead>
+                      <TableHead className="text-right">Last Year</TableHead>
+                      <TableHead className="text-right">This Year</TableHead>
+                      <TableHead className="text-right">Difference</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pagedTopRows.map((item) => (
-                      <TableRow
-                        key={`${item.articleId}-${item.rank}`}
-                        className="cursor-pointer"
-                        onClick={() => setSelectedItem(item)}
-                      >
-                        <TableCell>{item.itemName}</TableCell>
-                        <TableCell>{item.totalQty}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.totalAmount)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {pagedRevenueRows.map((item) => {
+                      const hasGrowth = item.differenceAmount >= 0;
+                      return (
+                        <TableRow
+                          key={item.monthNumber}
+                          className="cursor-pointer"
+                          onClick={() => setSelectedRow(item)}
+                        >
+                          <TableCell>{item.monthComparisonLabel}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.lastYearTotal)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(item.thisYearTotal)}</TableCell>
+                          <TableCell className={`text-right ${hasGrowth ? "text-[#128a3a]" : "text-[#b33a2f]"}`}>
+                            {`${hasGrowth ? "+" : ""}${formatCurrency(item.differenceAmount)} (${item.differencePercent}%)`}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 <div className="mt-4">
                   <PaginationBar
-                    page={topPage}
-                    totalPages={topTotalPages}
-                    totalItems={topTotalItems}
+                    page={revenuePage}
+                    totalPages={revenueTotalPages}
+                    totalItems={revenueTotalItems}
                     itemsPerPage={6}
-                    onPageChange={setTopPage}
+                    onPageChange={setRevenuePage}
                   />
                 </div>
               </>
@@ -324,25 +325,26 @@ export default function AnalyticPage() {
         reportPath="/api/analytics/analytic-dashboard/export"
         params={{
           ...queryParams,
-          limit: 50,
+          limit: 10,
+          year: referenceYear,
         }}
       />
 
       <RowDetailsDialog
-        open={Boolean(selectedItem)}
+        open={Boolean(selectedRow)}
         onOpenChange={(open) => {
-          if (!open) setSelectedItem(null);
+          if (!open) setSelectedRow(null);
         }}
-        title={selectedItem?.itemName || "Top sold item details"}
-        description="Selected top sold item details"
+        title={selectedRow?.monthComparisonLabel || "Revenue comparison details"}
+        description="Selected revenue comparison details"
         details={
-          selectedItem
+          selectedRow
             ? [
-                { label: "Rank", value: selectedItem.rank },
-                { label: "Article ID", value: selectedItem.articleId || "-" },
-                { label: "Item", value: selectedItem.itemName },
-                { label: "Quantity", value: selectedItem.totalQty },
-                { label: "Amount", value: formatCurrency(selectedItem.totalAmount) },
+                { label: "Comparison", value: selectedRow.monthComparisonLabel },
+                { label: `${selectedRow.lastYear} total`, value: formatCurrency(selectedRow.lastYearTotal) },
+                { label: `${selectedRow.thisYear} total`, value: formatCurrency(selectedRow.thisYearTotal) },
+                { label: "Difference", value: formatCurrency(selectedRow.differenceAmount) },
+                { label: "Difference %", value: `${selectedRow.differencePercent}%` },
               ]
             : []
         }

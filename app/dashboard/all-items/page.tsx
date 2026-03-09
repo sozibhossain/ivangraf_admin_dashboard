@@ -24,25 +24,22 @@ const ITEMS_PER_PAGE = 12;
 
 export default function AllItemsPage() {
   const [page, setPage] = React.useState(1);
-  const [search, setSearch] = React.useState("");
   const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("all"));
   const [exportOpen, setExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<AllItem | null>(null);
-  const deferredSearch = React.useDeferredValue(search);
 
   const queryParams = React.useMemo(
     () => ({
       page,
       limit: ITEMS_PER_PAGE,
-      search: deferredSearch || undefined,
       ...buildDateFilterParams(dateFilter),
     }),
-    [page, deferredSearch, dateFilter]
+    [page, dateFilter]
   );
 
   React.useEffect(() => {
     setPage(1);
-  }, [deferredSearch, dateFilter]);
+  }, [dateFilter]);
 
   const itemsQuery = useQuery({
     queryKey: ["lists", "all-items", queryParams],
@@ -107,8 +104,7 @@ export default function AllItemsPage() {
         )}
 
         <TableFooter
-          search={search}
-          onSearchChange={setSearch}
+          showSearch={false}
           totalLabel={summary?.label || "Total"}
           totalValue={formatSummaryValue(summary, totalItems)}
           page={page}
@@ -125,10 +121,7 @@ export default function AllItemsPage() {
         title="Export"
         subtitle="List of all items"
         reportPath="/api/lists/items/export"
-        params={{
-          search: deferredSearch || undefined,
-          ...buildDateFilterParams(dateFilter),
-        }}
+        params={buildDateFilterParams(dateFilter)}
       />
 
       <RowDetailsDialog

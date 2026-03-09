@@ -7,14 +7,14 @@ import { toast } from "sonner";
 
 import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
+import { ItemsDetailsDialog } from "@/components/dashboard/items-details-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { RowDetailsDialog } from "@/components/dashboard/row-details-dialog";
 import { TableFooter } from "@/components/dashboard/table-footer";
 import { TableSkeleton } from "@/components/dashboard/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getBills, type BillItem } from "@/lib/api";
+import { getBillItems, getBills, type BillItem } from "@/lib/api";
 import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -27,6 +27,7 @@ export default function BillsPage() {
   const [search, setSearch] = React.useState("");
   const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("last7Days"));
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [detailExportOpen, setDetailExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<BillItem | null>(null);
   const deferredSearch = React.useDeferredValue(search);
 
@@ -50,15 +51,28 @@ export default function BillsPage() {
     placeholderData: (previousData) => previousData,
   });
 
+  const selectedInvoiceId = selectedItem?.id;
+  const billItemsQuery = useQuery({
+    queryKey: ["lists", "bill-items", selectedInvoiceId],
+    queryFn: () => getBillItems(String(selectedInvoiceId)),
+    enabled: Boolean(selectedInvoiceId),
+  });
+
   React.useEffect(() => {
     if (!billsQuery.error) return;
     toast.error(getErrorMessage(billsQuery.error, "Failed to load bills"));
   }, [billsQuery.error]);
 
+  React.useEffect(() => {
+    if (!billItemsQuery.error) return;
+    toast.error(getErrorMessage(billItemsQuery.error, "Failed to load bill items"));
+  }, [billItemsQuery.error]);
+
   const rows = billsQuery.data?.data || [];
   const totalItems = billsQuery.data?.meta?.total || 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   const summary = billsQuery.data?.meta?.summary;
+  const detailData = billItemsQuery.data?.data;
 
   React.useEffect(() => {
     if (page > totalPages) {
@@ -135,26 +149,53 @@ export default function BillsPage() {
         }}
       />
 
-      <RowDetailsDialog
+      <ItemsDetailsDialog
         open={Boolean(selectedItem)}
         onOpenChange={(open) => {
-          if (!open) setSelectedItem(null);
+          if (!open) {
+            setSelectedItem(null);
+            setDetailExportOpen(false);
+          }
         }}
-        title={selectedItem?.invoiceNumber || "Bill details"}
-        description="Selected bill details"
+        title={detailData?.invoiceNumberFormatted || selectedItem?.invoiceNumber || "Bill details"}
+        description="Bill item details"
         details={
           selectedItem
             ? [
-                { label: "Bill ID", value: selectedItem.id },
-                { label: "Bill Number", value: selectedItem.invoiceNumber },
-                { label: "Time", value: formatDate(selectedItem.timeOfBill) },
-                { label: "Waiter", value: selectedItem.waiter || "-" },
+                { label: "Bill ID", value: detailData?.invoiceId || selectedItem.id },
+                { label: "Bill Number", value: detailData?.invoiceNumberFormatted || selectedItem.invoiceNumber },
+                { label: "Table", value: detailData?.tableName || "-" },
+                { label: "Waiter", value: detailData?.waiter || selectedItem.waiter || "-" },
                 { label: "Payment", value: selectedItem.paymentType || "-" },
-                { label: "Total", value: formatCurrency(selectedItem.total) },
+                { label: "Time", value: formatDate(selectedItem.timeOfBill) },
               ]
             : []
         }
+        items={(detailData?.items || []).map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: formatCurrency(item.price),
+          total: formatCurrency(item.total),
+        }))}
+        totalLabel="Invoice total"
+        totalValue={formatCurrency(detailData?.invoiceTotal || 0)}
+        loading={billItemsQuery.isLoading}
+        errorMessage={billItemsQuery.error ? getErrorMessage(billItemsQuery.error) : null}
+        onRetry={() => {
+          void billItemsQuery.refetch();
+        }}
+        onExport={selectedInvoiceId ? () => setDetailExportOpen(true) : undefined}
       />
+
+      {selectedInvoiceId ? (
+        <ExportDialog
+          open={detailExportOpen}
+          onOpenChange={setDetailExportOpen}
+          title="Export"
+          subtitle="Bill item details"
+          reportPath={`/api/bills/${encodeURIComponent(selectedInvoiceId)}/items/export`}
+        />
+      ) : null}
     </div>
   );
 }

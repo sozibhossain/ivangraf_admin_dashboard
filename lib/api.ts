@@ -68,10 +68,13 @@ export interface TimePeriodItem {
 export interface RevenueAnalysisItem {
   monthNumber: number;
   monthName: string;
+  monthComparisonLabel: string;
+  monthPairLabel: string;
   lastYear: number;
   lastYearTotal: number;
   thisYear: number;
   thisYearTotal: number;
+  differenceAmount: number;
   differencePercent: number;
 }
 
@@ -135,6 +138,47 @@ export interface OpenTableItem {
   waiterName: string | null;
   status: string;
   updatedAt?: string;
+}
+
+export interface OpenTableItemDetailsRow {
+  name: string;
+  qty: number;
+  price: number;
+  total: number;
+}
+
+export interface OpenTableDetails {
+  tableId: string;
+  tableName: string;
+  waiter: string | null;
+  items: OpenTableItemDetailsRow[];
+  tableTotal: number;
+}
+
+export interface InvoiceItemDetailsRow {
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+export interface BillDetails {
+  invoiceId: string;
+  invoiceNumberFormatted: string;
+  tableName: string;
+  waiter: string | null;
+  items: InvoiceItemDetailsRow[];
+  invoiceTotal: number;
+}
+
+export interface CancelOrderDetails {
+  invoiceId: string;
+  invoiceNumberFormatted: string;
+  tableName: string;
+  waiter: string | null;
+  dateCreated: string | null;
+  items: InvoiceItemDetailsRow[];
+  cancelledTotal: number;
 }
 
 export interface StockGoodItem {
@@ -283,6 +327,12 @@ export async function getOpenTables(params?: PeriodParams) {
   return unwrap<OpenTableItem[], ReportMeta>(apiClient.get("/api/analytics/open-tables", { params }));
 }
 
+export async function getOpenTableItems(tableId: string) {
+  return unwrap<OpenTableDetails, ReportMeta>(
+    apiClient.get(`/api/open-tables/${encodeURIComponent(tableId)}/items`)
+  );
+}
+
 export async function getAllItems(params?: ListParams) {
   return unwrap<AllItem[], PaginatedMeta>(apiClient.get("/api/lists/items", { params }));
 }
@@ -299,8 +349,18 @@ export async function getBills(params?: ListParams) {
   return unwrap<BillItem[], PaginatedMeta>(apiClient.get("/api/lists/bills", { params }));
 }
 
+export async function getBillItems(invoiceId: string) {
+  return unwrap<BillDetails, ReportMeta>(apiClient.get(`/api/bills/${encodeURIComponent(invoiceId)}/items`));
+}
+
 export async function getCancelOrders(params?: ListParams) {
   return unwrap<CancelOrderItem[], PaginatedMeta>(apiClient.get("/api/lists/cancel-orders", { params }));
+}
+
+export async function getCancelOrderItems(invoiceId: string) {
+  return unwrap<CancelOrderDetails, ReportMeta>(
+    apiClient.get(`/api/cancel-orders/${encodeURIComponent(invoiceId)}/items`)
+  );
 }
 
 function parseFileName(disposition?: string) {

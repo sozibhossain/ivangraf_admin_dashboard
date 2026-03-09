@@ -7,25 +7,25 @@ import { toast } from "sonner";
 
 import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
+import { ItemsDetailsDialog } from "@/components/dashboard/items-details-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { RowDetailsDialog } from "@/components/dashboard/row-details-dialog";
 import { TableFooter } from "@/components/dashboard/table-footer";
 import { TableSkeleton } from "@/components/dashboard/table-skeleton";
 import { usePagination } from "@/components/dashboard/use-pagination";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getOpenTables, type OpenTableItem } from "@/lib/api";
+import { getOpenTableItems, getOpenTables, type OpenTableItem } from "@/lib/api";
 import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 
 const ITEMS_PER_PAGE = 12;
 
 export default function OpensTablesPage() {
-  const [search, setSearch] = React.useState("");
   const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("all"));
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [detailExportOpen, setDetailExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<OpenTableItem | null>(null);
 
   const queryParams = React.useMemo(() => buildDateFilterParams(dateFilter), [dateFilter]);
@@ -35,34 +35,35 @@ export default function OpensTablesPage() {
     queryFn: () => getOpenTables(queryParams),
   });
 
+  const selectedTableId = selectedItem?.status === "Occupied" ? selectedItem.tableId : undefined;
+  const openTableItemsQuery = useQuery({
+    queryKey: ["dashboard", "open-table-items", selectedTableId],
+    queryFn: () => getOpenTableItems(String(selectedTableId)),
+    enabled: Boolean(selectedTableId),
+  });
+
   React.useEffect(() => {
     if (!openTablesQuery.error) return;
     toast.error(getErrorMessage(openTablesQuery.error, "Failed to load open tables"));
   }, [openTablesQuery.error]);
 
-  const filteredRows = React.useMemo(() => {
-    const rows = openTablesQuery.data?.data || [];
-    if (!search.trim()) return rows;
+  React.useEffect(() => {
+    if (!openTableItemsQuery.error) return;
+    toast.error(getErrorMessage(openTableItemsQuery.error, "Failed to load table items"));
+  }, [openTableItemsQuery.error]);
 
-    const term = search.toLowerCase();
-    return rows.filter(
-      (item) =>
-        item.tableName.toLowerCase().includes(term) ||
-        (item.sectorName || "").toLowerCase().includes(term) ||
-        (item.waiterName || "").toLowerCase().includes(term)
-    );
-  }, [openTablesQuery.data?.data, search]);
-
+  const rows = React.useMemo(() => openTablesQuery.data?.data || [], [openTablesQuery.data?.data]);
   const occupiedCount = React.useMemo(
-    () => filteredRows.filter((item) => item.status === "Occupied").length,
-    [filteredRows]
+    () => rows.filter((item) => item.status === "Occupied").length,
+    [rows]
   );
-
-  const { page, setPage, totalPages, totalItems, items } = usePagination(filteredRows, ITEMS_PER_PAGE);
+  const { page, setPage, totalPages, totalItems, items } = usePagination(rows, ITEMS_PER_PAGE);
 
   React.useEffect(() => {
     setPage(1);
-  }, [search, dateFilter, setPage]);
+  }, [dateFilter, setPage]);
+
+  const detailData = openTableItemsQuery.data?.data;
 
   return (
     <div className="space-y-6">
@@ -109,8 +110,7 @@ export default function OpensTablesPage() {
         )}
 
         <TableFooter
-          search={search}
-          onSearchChange={setSearch}
+          showSearch={false}
           totalLabel="Occupied tables"
           totalValue={formatNumber(occupiedCount, 0)}
           page={page}
@@ -127,32 +127,59 @@ export default function OpensTablesPage() {
         title="Export"
         subtitle="Open tables"
         reportPath="/api/analytics/open-tables/export"
-        params={{
-          search: search || undefined,
-          ...queryParams,
-        }}
+        params={queryParams}
       />
 
-      <RowDetailsDialog
+      <ItemsDetailsDialog
         open={Boolean(selectedItem)}
         onOpenChange={(open) => {
-          if (!open) setSelectedItem(null);
+          if (!open) {
+            setSelectedItem(null);
+            setDetailExportOpen(false);
+          }
         }}
-        title={selectedItem?.tableName || "Table details"}
-        description="Selected table details"
+        title={detailData?.tableName || selectedItem?.tableName || "Table details"}
+        description={
+          selectedItem?.status === "Occupied"
+            ? "Occupied table item details"
+            : "This table is currently available."
+        }
         details={
           selectedItem
             ? [
-                { label: "Table ID", value: selectedItem.tableId },
-                { label: "Table", value: selectedItem.tableName },
-                { label: "Sector", value: selectedItem.sectorName || "-" },
-                { label: "Waiter", value: selectedItem.waiterName || "-" },
+                { label: "Table ID", value: detailData?.tableId || selectedItem.tableId },
+                { label: "Table", value: detailData?.tableName || selectedItem.tableName },
+                { label: "Waiter", value: detailData?.waiter || selectedItem.waiterName || "-" },
                 { label: "Status", value: selectedItem.status },
                 { label: "Updated", value: formatDate(selectedItem.updatedAt) },
               ]
             : []
         }
+        items={(detailData?.items || []).map((item) => ({
+          name: item.name,
+          quantity: item.qty,
+          price: formatCurrency(item.price),
+          total: formatCurrency(item.total),
+        }))}
+        totalLabel="Table total"
+        totalValue={formatCurrency(detailData?.tableTotal || 0)}
+        loading={Boolean(selectedTableId) && openTableItemsQuery.isLoading}
+        errorMessage={selectedTableId && openTableItemsQuery.error ? getErrorMessage(openTableItemsQuery.error) : null}
+        onRetry={() => {
+          void openTableItemsQuery.refetch();
+        }}
+        onExport={selectedTableId ? () => setDetailExportOpen(true) : undefined}
       />
+
+      {selectedTableId ? (
+        <ExportDialog
+          open={detailExportOpen}
+          onOpenChange={setDetailExportOpen}
+          title="Export"
+          subtitle="Open table item details"
+          reportPath={`/api/open-tables/${encodeURIComponent(selectedTableId)}/items/export`}
+        />
+      ) : null}
     </div>
   );
 }

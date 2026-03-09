@@ -48,22 +48,20 @@ export function ExportDialog({ open, onOpenChange, title, subtitle, reportPath, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-8">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl border-[#edd7aa] bg-[#fffaf0] p-5 sm:p-6">
+        <DialogHeader className="mb-5">
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="text-[#c9841d]">
-            {subtitle}
-          </DialogDescription>
+          <DialogDescription className="text-[#c9841d]">{subtitle}</DialogDescription>
         </DialogHeader>
-        <div className="mt-4 rounded-2xl border border-[#f1e2c6] bg-[#fffaf0] p-5">
-          <div className="space-y-4">
+        <div className="rounded-2xl border border-[#f1e2c6] bg-[#fffaf0] p-4 sm:p-5">
+          <div className="space-y-3">
             {exportOptions.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => setSelected(option.value)}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-xl border border-[#f1d6a4] bg-white px-4 py-3 text-left text-sm font-medium text-[#5f513a] shadow-sm",
+                  "flex w-full items-center justify-between gap-3 rounded-xl border border-[#f1d6a4] bg-white px-4 py-3 text-left text-sm font-medium text-[#5f513a] shadow-sm transition-colors hover:border-[#e4bd7b]",
                   selected === option.value && "ring-2 ring-[#d39a2f]"
                 )}
               >
@@ -84,7 +82,7 @@ export function ExportDialog({ open, onOpenChange, title, subtitle, reportPath, 
               </button>
             ))}
           </div>
-          <div className="mt-6">
+          <div className="mt-5">
             <Button variant="gold" size="lg" className="w-full" onClick={handleExport} disabled={isExporting}>
               {isExporting ? "Exporting..." : "Export Now"}
             </Button>

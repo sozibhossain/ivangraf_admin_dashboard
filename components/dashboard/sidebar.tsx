@@ -19,7 +19,7 @@ import {
   Heart,
   LogOut,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -48,7 +48,6 @@ const navItems = [
   { name: "Cancel Orders", href: "/dashboard/cancel-orders", icon: Ban },
 ].map((item, index) => ({ ...item, order: index }));
 
-const PREFERENCES_QUERY_KEY = ["user", "preferences"] as const;
 const EMPTY_FAVORITES: string[] = [];
 
 interface SidebarProps {
@@ -65,10 +64,15 @@ function buildUpdatedFavorites(current: string[], href: string) {
 
 export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const preferencesQueryKey = React.useMemo(
+    () => ["user", "preferences", session?.user?.id || "anonymous"] as const,
+    [session?.user?.id]
+  );
 
   const preferencesQuery = useQuery({
-    queryKey: PREFERENCES_QUERY_KEY,
+    queryKey: preferencesQueryKey,
     queryFn: getUserPreferences,
   });
 
@@ -76,10 +80,10 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
     mutationFn: (favoriteSidebarItems: string[]) =>
       updateUserPreferences({ favoriteSidebarItems }),
     onMutate: async (nextFavorites) => {
-      await queryClient.cancelQueries({ queryKey: PREFERENCES_QUERY_KEY });
-      const previous = queryClient.getQueryData<ApiEnvelope<UserPreferences>>(PREFERENCES_QUERY_KEY);
+      await queryClient.cancelQueries({ queryKey: preferencesQueryKey });
+      const previous = queryClient.getQueryData<ApiEnvelope<UserPreferences>>(preferencesQueryKey);
 
-      queryClient.setQueryData<ApiEnvelope<UserPreferences>>(PREFERENCES_QUERY_KEY, {
+      queryClient.setQueryData<ApiEnvelope<UserPreferences>>(preferencesQueryKey, {
         success: true,
         message: "OK",
         data: { favoriteSidebarItems: nextFavorites },
@@ -89,12 +93,12 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(PREFERENCES_QUERY_KEY, context.previous);
+        queryClient.setQueryData(preferencesQueryKey, context.previous);
       }
       toast.error(getErrorMessage(error, "Failed to save favorites"));
     },
     onSuccess: (response) => {
-      queryClient.setQueryData(PREFERENCES_QUERY_KEY, response);
+      queryClient.setQueryData(preferencesQueryKey, response);
     },
   });
 
@@ -122,7 +126,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
 
   async function handleLogout() {
     clearActiveConnectionId();
-    queryClient.removeQueries({ queryKey: PREFERENCES_QUERY_KEY });
+    queryClient.removeQueries({ queryKey: ["user", "preferences"] });
     await signOut({ callbackUrl: "/auth/login" });
   }
 
@@ -140,43 +144,43 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
           const isActive = pathname === item.href;
           const isFavorite = favoriteSet.has(item.href);
           return (
-            <Link
+            <div
               key={item.href}
-              href={item.href}
-              onClick={() => onNavigate?.()}
               className={cn(
                 "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-[#2f2a21] transition",
                 isActive ? "bg-[#c99636] text-white shadow" : "hover:bg-[#f0d28c]"
               )}
             >
-              <span className="flex items-center gap-3">
+              <Link
+                href={item.href}
+                onClick={() => onNavigate?.()}
+                className="flex min-w-0 flex-1 items-center gap-3"
+              >
                 <Icon className={cn("h-4 w-4", isActive ? "text-white" : "text-[#2f2a21]")} />
                 {item.name}
-              </span>
+              </Link>
               <button
                 type="button"
                 aria-label={`Toggle favorite for ${item.name}`}
                 aria-pressed={isFavorite}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  toggleFavorite(item.href);
-                }}
+                onClick={() => toggleFavorite(item.href)}
                 className="rounded-full p-1 transition hover:bg-white/30"
-                disabled={updatePreferencesMutation.isPending && !isFavorite}
+                disabled={updatePreferencesMutation.isPending}
               >
                 <Heart
                   className={cn(
                     "h-4 w-4 transition-colors",
                     isActive
-                      ? "fill-white text-white"
+                      ? isFavorite
+                        ? "fill-white text-white"
+                        : "text-white/85"
                       : isFavorite
                         ? "fill-[#f4a021] text-[#f4a021]"
                         : "text-[#f4a021]"
                   )}
                 />
               </button>
-            </Link>
+            </div>
           );
         })}
       </nav>

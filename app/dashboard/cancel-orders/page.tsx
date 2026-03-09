@@ -7,14 +7,14 @@ import { toast } from "sonner";
 
 import { DateFilter } from "@/components/dashboard/date-filter";
 import { ExportDialog } from "@/components/dashboard/export-dialog";
+import { ItemsDetailsDialog } from "@/components/dashboard/items-details-dialog";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { RowDetailsDialog } from "@/components/dashboard/row-details-dialog";
 import { TableFooter } from "@/components/dashboard/table-footer";
 import { TableSkeleton } from "@/components/dashboard/table-skeleton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCancelOrders, type CancelOrderItem } from "@/lib/api";
+import { getCancelOrderItems, getCancelOrders, type CancelOrderItem } from "@/lib/api";
 import { buildDateFilterParams, createDateFilterValue } from "@/lib/date-filter";
 import { getErrorMessage } from "@/lib/error";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -27,6 +27,7 @@ export default function CancelOrdersPage() {
   const [search, setSearch] = React.useState("");
   const [dateFilter, setDateFilter] = React.useState(() => createDateFilterValue("last7Days"));
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [detailExportOpen, setDetailExportOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<CancelOrderItem | null>(null);
   const deferredSearch = React.useDeferredValue(search);
 
@@ -50,15 +51,28 @@ export default function CancelOrdersPage() {
     placeholderData: (previousData) => previousData,
   });
 
+  const selectedInvoiceId = selectedItem?.id;
+  const cancelOrderItemsQuery = useQuery({
+    queryKey: ["lists", "cancel-order-items", selectedInvoiceId],
+    queryFn: () => getCancelOrderItems(String(selectedInvoiceId)),
+    enabled: Boolean(selectedInvoiceId),
+  });
+
   React.useEffect(() => {
     if (!cancelOrdersQuery.error) return;
     toast.error(getErrorMessage(cancelOrdersQuery.error, "Failed to load cancel orders"));
   }, [cancelOrdersQuery.error]);
 
+  React.useEffect(() => {
+    if (!cancelOrderItemsQuery.error) return;
+    toast.error(getErrorMessage(cancelOrderItemsQuery.error, "Failed to load cancel order items"));
+  }, [cancelOrderItemsQuery.error]);
+
   const rows = cancelOrdersQuery.data?.data || [];
   const totalItems = cancelOrdersQuery.data?.meta?.total || 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   const summary = cancelOrdersQuery.data?.meta?.summary;
+  const detailData = cancelOrderItemsQuery.data?.data;
 
   React.useEffect(() => {
     if (page > totalPages) {
@@ -133,25 +147,55 @@ export default function CancelOrdersPage() {
         }}
       />
 
-      <RowDetailsDialog
+      <ItemsDetailsDialog
         open={Boolean(selectedItem)}
         onOpenChange={(open) => {
-          if (!open) setSelectedItem(null);
+          if (!open) {
+            setSelectedItem(null);
+            setDetailExportOpen(false);
+          }
         }}
-        title={selectedItem?.orderNumber || "Cancel order details"}
-        description="Selected cancel order details"
+        title={detailData?.invoiceNumberFormatted || selectedItem?.orderNumber || "Cancel order details"}
+        description="Cancelled order item details"
         details={
           selectedItem
             ? [
-                { label: "Order ID", value: selectedItem.id },
-                { label: "Order Number", value: selectedItem.orderNumber },
-                { label: "Time", value: formatDate(selectedItem.time) },
-                { label: "Waiter", value: selectedItem.waiter || "-" },
-                { label: "Amount", value: formatCurrency(selectedItem.amount) },
+                { label: "Order ID", value: detailData?.invoiceId || selectedItem.id },
+                {
+                  label: "Order Number",
+                  value: detailData?.invoiceNumberFormatted || selectedItem.orderNumber,
+                },
+                { label: "Table", value: detailData?.tableName || "-" },
+                { label: "Waiter", value: detailData?.waiter || selectedItem.waiter || "-" },
+                { label: "Time", value: formatDate(detailData?.dateCreated || selectedItem.time) },
               ]
             : []
         }
+        items={(detailData?.items || []).map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: formatCurrency(item.price),
+          total: formatCurrency(item.total),
+        }))}
+        totalLabel="Cancelled total"
+        totalValue={formatCurrency(detailData?.cancelledTotal || 0)}
+        loading={cancelOrderItemsQuery.isLoading}
+        errorMessage={cancelOrderItemsQuery.error ? getErrorMessage(cancelOrderItemsQuery.error) : null}
+        onRetry={() => {
+          void cancelOrderItemsQuery.refetch();
+        }}
+        onExport={selectedInvoiceId ? () => setDetailExportOpen(true) : undefined}
       />
+
+      {selectedInvoiceId ? (
+        <ExportDialog
+          open={detailExportOpen}
+          onOpenChange={setDetailExportOpen}
+          title="Export"
+          subtitle="Cancel order item details"
+          reportPath={`/api/cancel-orders/${encodeURIComponent(selectedInvoiceId)}/items/export`}
+        />
+      ) : null}
     </div>
   );
 }
